@@ -12,9 +12,10 @@
  *   COSMOS_CONNECTION_STRING       — Local dev only; never commit with a value
  *   COSMOS_DATABASE_NAME           — Default: "demo"
  *   COSMOS_CONTAINER_NAME          — Default: "weather"
- *   EXPORT_STORAGE_ACCOUNT_NAME    — Target storage account name (Azure managed identity)
- *   STORAGE_CONNECTION_STRING      — Local dev only (Azurite / emulator)
- *   EXPORT_CONTAINER_NAME          — Blob container name. Default: "cosmos-exports"
+ *   EXPORT_STORAGE_URL             — Full blob endpoint URL for export storage (injected by Bicep)
+ *   RETENTION_STORAGE_URL          — Full blob endpoint URL for WORM retention storage (injected by Bicep)
+ *   STORAGE_CONNECTION_STRING      — Local dev only (Azurite / emulator); overrides URL vars
+ *   EXPORT_CONTAINER_NAME          — Blob container name. Default: "exports"
  *   EXPORT_WINDOW_HOURS            — Hours of data per export. Default: 6
  *   EXPORT_LOOP_INTERVAL_MS        — If set, repeat exports on this interval; else run once
  *   AZURE_CLIENT_ID                — Optional user-assigned managed identity client ID
@@ -83,7 +84,7 @@ async function runExport(): Promise<void> {
     cosmosContainer: containerName,
   });
 
-  const { dataUrl, manifestUrl } = await writeExportBundle({
+  const { dataUrl, manifestUrl, retentionDataUrl, retentionManifestUrl } = await writeExportBundle({
     jsonlContent,
     manifest,
     windowStart,
@@ -97,6 +98,8 @@ async function runExport(): Promise<void> {
       sha256: manifest.sha256,
       dataUrl,
       manifestUrl,
+      retentionDataUrl: retentionDataUrl ?? null,
+      retentionManifestUrl: retentionManifestUrl ?? null,
       windowStart: windowStart.toISOString(),
       windowEnd: windowEnd.toISOString(),
     })

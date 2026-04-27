@@ -1,0 +1,32 @@
+{
+  "name": "cosmos-backup-demo-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Unit tests for weather-ingestor and backup-exporter contracts",
+  "scripts": {
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:ci": "jest --ci --coverage --reporters=default"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.4",
+    "typescript": "^5.4.5"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": ["**/unit/**/*.test.ts"],
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": ["../apps/**/src/**/*.ts"],
+    "coverageThreshold": {
+      "global": {
+        "branches": 70,
+        "functions": 70,
+        "lines": 70
+      }
+    }
+  }
+}

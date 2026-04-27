@@ -1,0 +1,27 @@
+# Squad: ignore runtime state (logs, inbox, sessions)
+.squad/orchestration-log/
+.squad/log/
+.squad/decisions/inbox/
+.squad/sessions/
+.squad/.scratch/
+# Squad: SubSquad activation file (local to this machine)
+.squad-workstream
+
+# Node.js
+node_modules/
+npm-debug.log*
+coverage/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Security: never commit private keys or certificates
+*.key
+*.pem
+
+# macOS
+.DS_Store
