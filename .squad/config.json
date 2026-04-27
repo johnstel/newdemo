@@ -1,6 +1,7 @@
 {
   "version": 1,
   "agentModelOverrides": {
+    "ash": "claude-opus-4.6",
     "lambert": "claude-opus-4.6"
   },
   "taskModelRules": [

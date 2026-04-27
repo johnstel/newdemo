@@ -16,6 +16,7 @@
 | Dallas | Azure Infra Dev | `.squad/agents/dallas/charter.md` | active |
 | Parker | Data App Dev | `.squad/agents/parker/charter.md` | active |
 | Lambert | Documentation Lead | `.squad/agents/lambert/charter.md` | active |
+| Ash | Technical Writer | `.squad/agents/ash/charter.md` | active |
 | Bishop | Tester | `.squad/agents/bishop/charter.md` | active |
 | Scribe | Session Logger | `.squad/agents/scribe/charter.md` | active |
 | Ralph | Work Monitor | `.squad/agents/ralph/charter.md` | active |

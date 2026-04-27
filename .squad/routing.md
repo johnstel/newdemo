@@ -9,7 +9,8 @@ How to decide who handles what.
 | Architecture, scope, enterprise backup requirements | Ripley | Define backup scope, review trade-offs, approve demo architecture |
 | Azure infrastructure and deployment | Dallas | Bicep modules, Azure resource layout, deployment parameters |
 | Data workload and Cosmos DB app code | Parker | Data generator, Cosmos DB writes, sample document schema |
-| Documentation and demo narrative | Lambert | README, architecture docs, runbooks, operator guidance |
+| Technical writing and documentation updates | Ash | README, architecture docs, runbooks, operator guidance, GitHub issue body drafting |
+| Documentation strategy and demo narrative review | Lambert | Documentation structure, demo storyline, stakeholder narrative, technical-writing review |
 | Code review | Ripley | Review architecture, quality, reliability, and maintainability |
 | Testing and validation | Bishop | Write tests, find edge cases, verify backup/restore scenarios |
 | Scope & priorities | Ripley | What to build next, trade-offs, decisions |
@@ -39,3 +40,4 @@ How to decide who handles what.
 5. **"Team, ..." → fan-out.** Spawn all relevant agents in parallel as `mode: "background"`.
 6. **Anticipate downstream work.** If a feature is being built, spawn the tester to write test cases from requirements simultaneously.
 7. **Issue-labeled work** — when a `squad:{member}` label is applied to an issue, route to that member. The Lead handles all `squad` (base label) triage.
+8. **Technical writing** — all technical writing and issue-body drafting routes to Ash using `claude-opus-4.6`.
