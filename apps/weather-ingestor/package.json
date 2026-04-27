@@ -1,0 +1,24 @@
+{
+  "name": "weather-ingestor",
+  "version": "1.0.0",
+  "description": "Synthetic weather observation ingestion workload for Cosmos DB backup demo",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "lint": "tsc --noEmit",
+    "test": "node --test dist/index.test.js"
+  },
+  "dependencies": {
+    "@azure/cosmos": "^4.1.1",
+    "@azure/identity": "^4.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

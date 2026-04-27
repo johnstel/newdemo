@@ -1,0 +1,1 @@
+{"version":3,"file":"cosmos-reader.d.ts","sourceRoot":"","sources":["../src/cosmos-reader.ts"],"names":[],"mappings":"AAAA,OAAO,EAAgB,SAAS,EAAE,MAAM,eAAe,CAAC;AAGxD;;;GAGG;AACH,wBAAsB,kBAAkB,IAAI,OAAO,CAAC,SAAS,CAAC,CAsB7D;AAED;;;GAGG;AACH,wBAAsB,qBAAqB,CACzC,SAAS,EAAE,SAAS,EACpB,WAAW,EAAE,IAAI,EACjB,SAAS,EAAE,IAAI,GACd,OAAO,CAAC,MAAM,CAAC,MAAM,EAAE,OAAO,CAAC,EAAE,CAAC,CAepC"}

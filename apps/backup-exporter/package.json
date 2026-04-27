@@ -1,0 +1,25 @@
+{
+  "name": "backup-exporter",
+  "version": "1.0.0",
+  "description": "Long-term retention export job: queries Cosmos DB and writes JSONL bundles to Blob Storage",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "lint": "tsc --noEmit",
+    "test": "node --test dist/index.test.js"
+  },
+  "dependencies": {
+    "@azure/cosmos": "^4.1.1",
+    "@azure/identity": "^4.4.1",
+    "@azure/storage-blob": "^12.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
