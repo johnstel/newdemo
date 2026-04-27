@@ -1,3 +1,12 @@
 {
-  "version": 1
+  "version": 1,
+  "agentModelOverrides": {
+    "lambert": "claude-opus-4.6"
+  },
+  "taskModelRules": [
+    {
+      "match": "documentation writing, document updates, GitHub issue creation, GitHub issue body drafting",
+      "model": "claude-opus-4.6"
+    }
+  ]
 }
