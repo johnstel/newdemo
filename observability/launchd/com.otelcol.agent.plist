@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS launchd user agent for the OpenTelemetry Collector.
+
+  Installation:
+    1. Copy this file to ~/Library/LaunchAgents/com.otelcol.agent.plist
+    2. Edit the paths below to match your system:
+         - Replace /opt/homebrew/bin/otelcol-contrib with the actual binary path
+           (run `which otelcol-contrib` after `brew install opentelemetry-collector`)
+         - Replace /Users/YOUR_USERNAME with your actual home directory
+    3. Set required environment variables in the EnvironmentVariables dict below
+       OR source them from macOS Keychain via a wrapper script (see README).
+    4. Load the agent:
+         launchctl load ~/Library/LaunchAgents/com.otelcol.agent.plist
+    5. Check status:
+         launchctl list | grep otelcol
+
+  Unload:
+    launchctl unload ~/Library/LaunchAgents/com.otelcol.agent.plist
+
+  View logs:
+    tail -f ~/Library/Logs/otelcol/otelcol.log
+-->
+<plist version="1.0">
+<dict>
+  <!-- Unique label for this launchd agent -->
+  <key>Label</key>
+  <string>com.otelcol.agent</string>
+
+  <!-- Binary and arguments -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/otelcol-contrib</string>
+    <string>--config</string>
+    <string>/Users/YOUR_USERNAME/.config/otelcol/otel-config.yaml</string>
+  </array>
+
+  <!--
+    Environment variables for the collector process.
+    For production use, consider replacing secrets with references to
+    the macOS Keychain via a wrapper launch script that calls:
+      security find-generic-password -a otelcol -s ADX_CLIENT_SECRET -w
+  -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OTEL_SERVICE_NAME</key>
+    <string>ai-demo-agent</string>
+
+    <key>OTEL_ENV</key>
+    <string>dev</string>
+
+    <!-- Azure Data Explorer -->
+    <key>ADX_CLUSTER_URI</key>
+    <string>https://REPLACE_ME.eastus2.kusto.windows.net</string>
+
+    <key>ADX_DATABASE</key>
+    <string>telemetry</string>
+
+    <key>ADX_CLIENT_ID</key>
+    <string>REPLACE_ME</string>
+
+    <key>ADX_CLIENT_SECRET</key>
+    <string>REPLACE_ME</string>
+
+    <key>ADX_TENANT_ID</key>
+    <string>REPLACE_ME</string>
+
+    <!-- Azure Managed Prometheus -->
+    <key>AMP_REMOTE_WRITE_URL</key>
+    <string>https://REPLACE_ME.prometheus.monitor.azure.com/api/v1/write</string>
+
+    <key>AMP_CLIENT_ID</key>
+    <string>REPLACE_ME</string>
+
+    <key>AMP_CLIENT_SECRET</key>
+    <string>REPLACE_ME</string>
+
+    <key>AMP_TENANT_ID</key>
+    <string>REPLACE_ME</string>
+  </dict>
+
+  <!-- Restart the process if it exits for any reason -->
+  <key>KeepAlive</key>
+  <true/>
+
+  <!-- Start immediately when loaded (and at login) -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- Throttle restart attempts (seconds between restarts after failure) -->
+  <key>ThrottleInterval</key>
+  <integer>15</integer>
+
+  <!-- Working directory -->
+  <key>WorkingDirectory</key>
+  <string>/Users/YOUR_USERNAME</string>
+
+  <!-- Log stdout to file -->
+  <key>StandardOutPath</key>
+  <string>/Users/YOUR_USERNAME/Library/Logs/otelcol/otelcol.log</string>
+
+  <!-- Log stderr to the same file -->
+  <key>StandardErrorPath</key>
+  <string>/Users/YOUR_USERNAME/Library/Logs/otelcol/otelcol.log</string>
+
+  <!-- Soft file descriptor limit (otelcol opens many connections) -->
+  <key>SoftResourceLimits</key>
+  <dict>
+    <key>NumberOfFiles</key>
+    <integer>65536</integer>
+  </dict>
+</dict>
+</plist>

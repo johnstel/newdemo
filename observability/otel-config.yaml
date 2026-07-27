@@ -1,0 +1,179 @@
+# OpenTelemetry Collector Configuration
+# MacOS AI Agent Telemetry → Azure Data Explorer + Azure Managed Prometheus
+#
+# Environment variables required (set in shell profile or launchd plist):
+#   ADX_CLUSTER_URI      – e.g. https://mycluster.eastus2.kusto.windows.net
+#   ADX_DATABASE         – e.g. telemetry
+#   ADX_CLIENT_ID        – Entra ID app registration client ID
+#   ADX_CLIENT_SECRET    – Entra ID app registration secret
+#   ADX_TENANT_ID        – Entra ID tenant ID
+#   AMP_REMOTE_WRITE_URL – e.g. https://<workspace>.prometheus.monitor.azure.com/api/v1/write
+#   AMP_CLIENT_ID        – Entra ID app registration client ID (Monitoring Metrics Publisher)
+#   AMP_CLIENT_SECRET    – Entra ID app registration secret
+#   AMP_TENANT_ID        – Entra ID tenant ID
+#   OTEL_SERVICE_NAME    – e.g. ai-demo-agent
+
+extensions:
+  # OAuth2 client for Azure Managed Prometheus authentication
+  oauth2client/amp:
+    client_id: "${AMP_CLIENT_ID}"
+    client_secret: "${AMP_CLIENT_SECRET}"
+    token_url: "https://login.microsoftonline.com/${AMP_TENANT_ID}/oauth2/v2.0/token"
+    scopes:
+      - "https://monitor.azure.com/.default"
+
+  # Health check endpoint (useful for validating the collector is alive)
+  health_check:
+    endpoint: "0.0.0.0:13133"
+
+receivers:
+  # Accept spans, metrics, and logs from local agent processes over gRPC and HTTP
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "127.0.0.1:4317"
+      http:
+        endpoint: "127.0.0.1:4318"
+
+processors:
+  # Prevent out-of-memory crashes on MacOS dev machine
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  # Buffer and batch telemetry before export
+  batch:
+    send_batch_size: 512
+    send_batch_max_size: 1024
+    timeout: 10s
+
+  # Attach standard resource attributes to every signal
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: "${OTEL_ENV:-dev}"
+        action: upsert
+      - key: service.name
+        value: "${OTEL_SERVICE_NAME:-ai-demo-agent}"
+        action: upsert
+      - key: host.name
+        from_attribute: host.name
+        action: insert
+
+  # Promote gen_ai span attributes into metric data points for Prometheus
+  # This lets you count token usage as Prometheus counters aggregated per agent.
+  transform/gen_ai_to_metrics:
+    metric_statements:
+      - context: datapoint
+        statements:
+          # Add custom metric transformations here if needed.
+          - set(attributes["service.name"], resource.attributes["service.name"])
+
+connectors:
+  # Convert spans into metrics (duration histograms, call counts) automatically
+  spanmetrics:
+    histogram:
+      explicit:
+        buckets: [10ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s, 10s, 30s, 60s]
+    dimensions:
+      - name: gen_ai.system
+        default: unknown
+      - name: gen_ai.model
+        default: unknown
+      - name: agent.name
+        default: unknown
+      - name: gen_ai.operation.name
+        default: unknown
+    exemplars:
+      enabled: true
+    metrics_expiration: 5m
+    resource_metrics_key_attributes:
+      - service.name
+      - deployment.environment
+
+exporters:
+  # ── Azure Data Explorer ──────────────────────────────────────────────────
+  # Exports traces, metrics, and logs into ADX tables created by adx/schema.kql
+  azuredataexplorer:
+    cluster_uri: "${ADX_CLUSTER_URI}"
+    application_id: "${ADX_CLIENT_ID}"
+    application_key: "${ADX_CLIENT_SECRET}"
+    tenant_id: "${ADX_TENANT_ID}"
+    db: "${ADX_DATABASE}"
+    metrics_table_name: "OTelMetrics"
+    logs_table_name: "OTelLogs"
+    traces_table_name: "OTelTraces"
+    ingestion_type: "managed"   # use "queued" for lower latency at higher cost
+    ingestion_endpoint_type: "default"
+
+  # ── Azure Managed Prometheus (remote write) ───────────────────────────────
+  prometheusremotewrite:
+    endpoint: "${AMP_REMOTE_WRITE_URL}"
+    auth:
+      authenticator: oauth2client/amp
+    tls:
+      insecure: false
+    resource_to_telemetry_conversion:
+      enabled: true
+    target_info:
+      enabled: true
+
+  # Debug exporter – prints telemetry to stdout; disable in production
+  debug:
+    verbosity: basic
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+service:
+  extensions:
+    - health_check
+    - oauth2client/amp
+
+  pipelines:
+    # ── Traces ───────────────────────────────────────────────────────────────
+    traces:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - resource
+        - batch
+      exporters:
+        - azuredataexplorer
+        - spanmetrics
+        - debug
+
+    # ── Metrics ──────────────────────────────────────────────────────────────
+    metrics:
+      receivers:
+        - otlp
+        - spanmetrics
+      processors:
+        - memory_limiter
+        - resource
+        - transform/gen_ai_to_metrics
+        - batch
+      exporters:
+        - prometheusremotewrite
+        - azuredataexplorer
+        - debug
+
+    # ── Logs ─────────────────────────────────────────────────────────────────
+    logs:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - resource
+        - batch
+      exporters:
+        - azuredataexplorer
+        - debug
+
+  telemetry:
+    logs:
+      level: "warn"
+    metrics:
+      level: "basic"
+      address: "127.0.0.1:8888"

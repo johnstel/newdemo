@@ -1,0 +1,196 @@
+// ============================================================
+// Azure Data Explorer – OTel Schema for AI Agent Telemetry
+// ============================================================
+// Run these commands in the ADX Web UI (https://dataexplorer.azure.com)
+// or via `az kusto script` against your cluster + database.
+//
+// Prerequisites:
+//   - ADX cluster and a database named (default: telemetry)
+//   - App Registration with Database Ingestor role
+//
+// Usage:
+//   az kusto script execute \
+//     --cluster-name <cluster> \
+//     --database-name telemetry \
+//     --resource-group <rg> \
+//     --script-path observability/adx/schema.kql
+// ============================================================
+
+// ── Traces table ────────────────────────────────────────────
+// Stores every OTel span.  The gen_ai.* and agent.* columns
+// are surfaced as first-class dynamic columns for easy querying.
+.create-merge table OTelTraces (
+    TraceId:                  string,
+    SpanId:                   string,
+    ParentId:                 string,
+    SpanName:                 string,
+    SpanStatus:               string,
+    SpanKind:                 string,
+    StartTime:                datetime,
+    EndTime:                  datetime,
+    // Span duration in milliseconds (computed on ingest)
+    DurationMs:               real,
+    // Agent hierarchy
+    AgentName:                string,
+    AgentParent:              string,
+    // Gen AI semantic convention attributes
+    GenAiSystem:              string,   // e.g. "openai", "azure_openai"
+    GenAiModel:               string,   // e.g. "gpt-4o"
+    GenAiOperationName:       string,   // e.g. "chat", "embeddings"
+    GenAiPromptTokens:        long,
+    GenAiCompletionTokens:    long,
+    GenAiTotalTokens:         long,
+    // Full prompt / completion text (truncated to 32 KB by ADX ingestion)
+    GenAiPrompt:              string,
+    GenAiCompletion:          string,
+    // Service / resource attributes
+    ServiceName:              string,
+    DeploymentEnvironment:    string,
+    HostName:                 string,
+    // Raw span attribute bag (all other attributes as JSON)
+    SpanAttributes:           dynamic,
+    ResourceAttributes:       dynamic,
+    // Collector-added fields
+    CollectorReceivedAt:      datetime
+)
+
+// Ingestion time policy: retain 90 days (adjust as needed)
+.alter table OTelTraces policy retention
+```
+{
+  "SoftDeletePeriod": "90.00:00:00",
+  "Recoverability": "Enabled"
+}
+```
+
+// Ingestion mapping: maps the OTel Collector JSON schema to table columns
+.create-or-alter table OTelTraces ingestion json mapping "OTelTracesMapping"
+```
+[
+  { "column": "TraceId",               "path": "$.traceId" },
+  { "column": "SpanId",                "path": "$.spanId" },
+  { "column": "ParentId",              "path": "$.parentSpanId" },
+  { "column": "SpanName",              "path": "$.name" },
+  { "column": "SpanStatus",            "path": "$.status.code" },
+  { "column": "SpanKind",              "path": "$.kind" },
+  { "column": "StartTime",             "path": "$.startTimeUnixNano",  "transform": "DateTimeFromUnixNanoseconds" },
+  { "column": "EndTime",               "path": "$.endTimeUnixNano",    "transform": "DateTimeFromUnixNanoseconds" },
+  { "column": "AgentName",             "path": "$.attributes['agent.name']" },
+  { "column": "AgentParent",           "path": "$.attributes['agent.parent']" },
+  { "column": "GenAiSystem",           "path": "$.attributes['gen_ai.system']" },
+  { "column": "GenAiModel",            "path": "$.attributes['gen_ai.model']" },
+  { "column": "GenAiOperationName",    "path": "$.attributes['gen_ai.operation.name']" },
+  { "column": "GenAiPromptTokens",     "path": "$.attributes['gen_ai.usage.prompt_tokens']" },
+  { "column": "GenAiCompletionTokens", "path": "$.attributes['gen_ai.usage.completion_tokens']" },
+  { "column": "GenAiTotalTokens",      "path": "$.attributes['gen_ai.usage.total_tokens']" },
+  { "column": "GenAiPrompt",           "path": "$.attributes['gen_ai.prompt']" },
+  { "column": "GenAiCompletion",       "path": "$.attributes['gen_ai.completion']" },
+  { "column": "ServiceName",           "path": "$.resource.attributes['service.name']" },
+  { "column": "DeploymentEnvironment", "path": "$.resource.attributes['deployment.environment']" },
+  { "column": "HostName",              "path": "$.resource.attributes['host.name']" },
+  { "column": "SpanAttributes",        "path": "$.attributes" },
+  { "column": "ResourceAttributes",    "path": "$.resource.attributes" }
+]
+```
+
+// Update policy: compute DurationMs and CollectorReceivedAt on ingest
+.create-or-alter function OTelTracesTransform() {
+    OTelTraces
+    | extend
+        DurationMs = datetime_diff("millisecond", EndTime, StartTime),
+        CollectorReceivedAt = now()
+}
+
+// ── Metrics table ────────────────────────────────────────────
+// Stores OTel metric data points: counters, gauges, histograms.
+// Key gen_ai metrics shipped by the collector:
+//   gen_ai_client_token_usage_total  (counter, labels: gen_ai.model, agent.name)
+//   gen_ai_client_operation_duration (histogram, labels: gen_ai.model, gen_ai.operation.name)
+//   agent_call_duration_seconds      (histogram from spanmetrics connector)
+.create-merge table OTelMetrics (
+    Timestamp:                datetime,
+    MetricName:               string,
+    MetricDescription:        string,
+    MetricUnit:               string,
+    MetricType:               string,    // Gauge | Sum | Histogram | ExponentialHistogram | Summary
+    // Numeric value (for Gauge and Sum)
+    Value:                    real,
+    // Histogram fields
+    HistogramCount:           long,
+    HistogramSum:             real,
+    HistogramMin:             real,
+    HistogramMax:             real,
+    HistogramBucketCounts:    dynamic,
+    HistogramExplicitBounds:  dynamic,
+    // Labels / attributes
+    AgentName:                string,
+    GenAiSystem:              string,
+    GenAiModel:               string,
+    GenAiOperationName:       string,
+    ServiceName:              string,
+    DeploymentEnvironment:    string,
+    Labels:                   dynamic,
+    ResourceAttributes:       dynamic
+)
+
+.alter table OTelMetrics policy retention
+```
+{
+  "SoftDeletePeriod": "90.00:00:00",
+  "Recoverability": "Enabled"
+}
+```
+
+// ── Logs table ───────────────────────────────────────────────
+// Stores OTel log records (structured logs emitted by agent processes).
+.create-merge table OTelLogs (
+    Timestamp:                datetime,
+    ObservedTimestamp:        datetime,
+    TraceId:                  string,
+    SpanId:                   string,
+    SeverityText:             string,
+    SeverityNumber:           int,
+    Body:                     string,
+    AgentName:                string,
+    ServiceName:              string,
+    DeploymentEnvironment:    string,
+    LogAttributes:            dynamic,
+    ResourceAttributes:       dynamic
+)
+
+.alter table OTelLogs policy retention
+```
+{
+  "SoftDeletePeriod": "90.00:00:00",
+  "Recoverability": "Enabled"
+}
+```
+
+// ── Useful demo queries ──────────────────────────────────────
+
+// Q1: Full agent call tree for a given trace (token usage per hop)
+//   OTelTraces
+//   | where TraceId == "<your-trace-id>"
+//   | project SpanId, ParentId, SpanName, AgentName, AgentParent,
+//             GenAiModel, GenAiPromptTokens, GenAiCompletionTokens, DurationMs
+//   | order by StartTime asc
+
+// Q2: Token utilization by agent over the last hour
+//   OTelTraces
+//   | where StartTime > ago(1h)
+//   | summarize
+//       TotalPromptTokens     = sum(GenAiPromptTokens),
+//       TotalCompletionTokens = sum(GenAiCompletionTokens),
+//       Calls = count()
+//     by AgentName, GenAiModel
+//   | order by TotalCompletionTokens desc
+
+// Q3: Average end-to-end latency by model
+//   OTelTraces
+//   | where StartTime > ago(1h) and isnotempty(GenAiModel)
+//   | summarize avg(DurationMs), percentile(DurationMs, 95) by GenAiModel
+
+// Q4: Error spans in last 24 hours
+//   OTelTraces
+//   | where StartTime > ago(24h) and SpanStatus == "STATUS_CODE_ERROR"
+//   | project StartTime, SpanName, AgentName, SpanAttributes
